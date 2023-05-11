@@ -1,4 +1,6 @@
 //instantiate the screen
+//instantiate the block
+const block = require("./Blocks");
 //instantiate the player
 const frame = document.getElementById("frame");
 const ctx = frame.getContext("2d");
@@ -93,7 +95,7 @@ document.addEventListener("keydown", function(event){
 var gameOn = true;
 
 while(gameOn){
-    
+
 }
 
 
