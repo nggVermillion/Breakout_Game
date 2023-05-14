@@ -2,6 +2,7 @@
 let frame, ctx;
 let player = null;
 let ball = null;
+let score = 0;
 
 function init(){
     frame = document.getElementById("frame");
@@ -45,6 +46,12 @@ function instantiateBall(){
     ball.draw();
 }
 
+function drawScore(){
+    ctx.font = "15px serif";
+    ctx.fillText("Score: ", 340, 396);
+    ctx.fillText(score.toString(), 380, 396);
+}
+
 //make the games "player" listen to -> and <-
 
 
@@ -72,7 +79,17 @@ function updateBall(){
     ball.update();
 }
 
-var gameOn = true;
+function reset(){
+    score = 0;
+    ctx.clearRect(0, 0, frame.width, frame.height);
+    blocks = [];
+    instantiateBlocks(ctx);
+    player.reset();
+    instantiatePlayer();
+    ball.reset();
+    instantiateBall();
+}
+
 
 function gameLoop(){
     window.requestAnimationFrame(gameLoop);
@@ -82,6 +99,7 @@ function gameLoop(){
     drawBlocks();
     player.draw();
     ball.draw();
+    drawScore();
 
     updateBall();
 }
@@ -92,15 +110,23 @@ function gameLoop(){
 
 class Ball {
     x = 200;
-    y = 200;
+    y = 370;
     radius = 5;
     fillStyle = "red";
     ctx;
     speed = 5;
     currentXDirection = 1;
-    currentYDirection = 4;
+    currentYDirection = -4;
     constructor(ctx){
         this.ctx = ctx;
+    }
+
+    reset(){
+        this.speed = 5;
+        this.currentXDirection = 1;
+        this.currentYDirection = -4;
+        this.x = 200;
+        this.y = 370;
     }
 
     getX(){
@@ -136,8 +162,9 @@ class Ball {
             }
             if(this.y<8){
                 this.currentYDirection = (-1)*this.currentYDirection;
-            }else if(this.y>392){
-                this.currentYDirection = (-1)*this.currentYDirection;
+            }else if(this.y>player.getBottom()){
+                reset();
+                return;
             }
         }
         
@@ -146,33 +173,16 @@ class Ball {
 
     }
 
-    randomNumber(){
-        var rnd = Math.floor(((Math.random() * 10 + 1))/2);
-        if(rnd == 0){
-            return 1;
-        }
-        return rnd;
-    }
-
     checkBlockCollision(){
         for(var i = 0; i<blocks.length; i++){
             const b = blocks[i];
+            var mid = b.getMid();
             //cover case if ball approaches from bottom or top
-            if((this.y<= (b.getBottom() + this.radius) && this.y > b.getBottom()) && (this.x >= b.getLeft() && this.x <= b.getRight())){
-                console.log("BOttom");
-                this.fromBottom(b, i);
-                return true;
-            }else if(this.y <= b.getTop() - this.radius && this.y < b.getTop()&& (this.x >= b.getLeft() && this.x <= b.getRight())){
-                console.log("TOp");
+            if((this.y < mid && this.y >= mid - this.radius) && (this.x >= b.getLeft() && this.x <= b.getRight())){
                 this.fromTop(b, i);
                 return true;
-            }else if((this.y > b.getTop() && this.y < b.getBottom()) && (this.x <= b.getLeft() + this.radius && this.x> b.getLeft())){
-                console.log("left");
-                this.fromLeft(b, i);
-                return true;
-            }else if((this.y > b.getTop() && this.y < b.getBottom()) && (this.x <= b.getRight() + this.radius && this.x> b.getRight())){
-                console.log("right");
-                this.fromRight(b, i);
+            }else if((this.y > mid && this.y <= mid + this.radius) && (this.x >= b.getLeft() && this.x <= b.getRight())){
+                this.fromBottom(b, i);
                 return true;
             }
         }
@@ -187,58 +197,17 @@ class Ball {
         }
         return false;
     }
-
-    calculateLeftDown(newX){
-       var newYValue = this.speed**2 - newX**2;
-       if(this.currentYDirection>0){
-        this.currentYDirection = Math.sqrt(newYValue);
-       }else{
-        this.currentYDirection = (-1)*Math.sqrt(newYValue);
-       }
-       this.currentXDirection = (-1)*newX;
-    }
-
-    calculateRightDown(newX){
-        var newYValue = this.speed**2 - newX**2;
-       if(this.currentYDirection>0){
-        this.currentYDirection = Math.sqrt(newYValue);
-       }else{
-        this.currentYDirection = (-1)*Math.sqrt(newYValue);
-       }
-       this.currentXDirection = newX;
-    }
-
-    hitLeftEdge(){
-        var random = this.randomNumber();
-        console.log(random);
-        this.calculateLeftDown(random);
-        this.currentYDirection*(-1);
-    }
-
-    hitRightEdge(){
-        var random = this.randomNumber();
-        this.calculateRightDown(random);
-        this.currentYDirection*(-1);
-    }
     //cover different scenarios from what angle the ball could approach the block
-
-    fromLeft(block, index){
-        this.currentXDirection = -(Math.abs(this.currentXDirection));
-        blocks.splice(index, 1);
-    }
-
-    fromRight(block, index){
-        this.currentXDirection = (Math.abs(this.currentXDirection));
-        blocks.splice(index, 1);
-    }
 
     fromBottom(block, index) {
         this.currentYDirection = Math.abs(this.currentYDirection);
+        score += 1;
         blocks.splice(index, 1);
     }
     
     fromTop(block, index) {
         this.currentYDirection = -(Math.abs(this.currentYDirection));
+        score += 1;
         blocks.splice(index, 1);
     }
 }
@@ -275,6 +244,10 @@ class Block {
         return this.y + this.height;
     }
 
+    getMid(){
+        return this.y-(this.height/2);
+    }
+
     draw(){
         this.ctx.fillStyle = this.fillStyle;
         this.ctx.fillRect(this.x, this.y, this.width, this.height);
@@ -290,6 +263,11 @@ class Player{
     ctx;
     constructor(ctx){
         this.ctx = ctx;
+    }
+
+    reset(){
+        this.x = 175;
+        this.y = 380;
     }
 
     getLeft(){
