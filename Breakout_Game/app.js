@@ -1,88 +1,58 @@
 //instantiate the screen
-//instantiate the block
-const block = require("./Blocks");
-//instantiate the player
-const frame = document.getElementById("frame");
-const ctx = frame.getContext("2d");
-frame.width = 400;
-frame.height = 400;
-ctx.fillStyle = "blue";
-//x, y, width, height of player
-var x_player = 175;
-const y_player = 380;
-const width_player = 50;
-const height_player = 10;
+let frame, ctx;
+let player = null;
+let ball = null;
 
-var width_block = 30;
-var height_block = 15;
-
-
-ctx.fillRect(x_player, y_player, width_player, height_player);
-
-//instantiate the blocks
-let blocks = {};
-const drawBlock = (x, y) => {
-    if(y in blocks){
-        blocks[y].push(x);
-    }else {
-        blocks[y] = [x];
-    }
+function init(){
+    frame = document.getElementById("frame");
+    ctx = frame.getContext("2d");
+    frame.width = 400;
+    frame.height = 400;
     ctx.fillStyle = "blue";
-    ctx.fillRect(x, y, width_block, height_block);
+    player = new Player(ctx);
+    ball = new Ball(ctx);
+    instantiateBlocks(ctx);
+    instantiatePlayer();
+    instantiateBall();
+
+    gameLoop();
 }
 
-var y_block = 15;
-for(var i = 1; i<4; i++){
-    var x = 20;
-    for(var j = 0; j<9; j++){
-        drawBlock(x, y_block);
-        x += 40;
-    }
-    y_block += 30;
-}
+//instantiate the block player and ball
 
-const ballRadius = 8;
-var ballX = 200;
-var ballY = 200;
+//add the blocks to the dict so we can reuse them later on more easily
+let blocks = [];
 
-ctx.beginPath();
-ctx.arc(ballX, ballY, ballRadius, 0, Math.PI*2);
-ctx.fillStyle = "red";
-ctx.fill();
-ctx.closePath();
-
-//save blocks in a dict
-
-function redrawBlocks(){
-    for(const key in blocks){
-        const xValues = blocks[key];
-        for(var i = 0; i< xValues.length; i++){
-            const x = xValues[i];
-            ctx.fillStyle = "blue";
-            //console.log(x);
-            ctx.fillRect(x, key, width_block, height_block);
+function instantiateBlocks(ctx){
+    var y = 15;
+    for(var i = 1; i<4; i++){
+        var x = 20;
+        for(var j = 0; j<9; j++){
+            const newBlock = new Block(x, y, ctx);
+            blocks.push(newBlock);
+            newBlock.draw();
+            x += 40;
         }
+        y += 30;
     }
 }
 
-function drawPlayer(dx){
-    ctx.clearRect(0, 0, frame.width, frame.height);
+function instantiatePlayer(){
+    player.draw();
+}
 
-    x_player += dx;
-
-    ctx.fillRect(x_player, y_player, width_player, height_player);
-
-    redrawBlocks();
-
+function instantiateBall(){
+    ball.draw();
 }
 
 //make the games "player" listen to -> and <-
 
+
 document.addEventListener("keydown", function(event){
     if(event.key === "ArrowLeft"){
-        drawPlayer(-5);
+        player.update(-5);
     }else if(event.key === "ArrowRight"){
-        drawPlayer(+5);
+        player.update(5);
     }
 });
 
@@ -92,12 +62,258 @@ document.addEventListener("keydown", function(event){
 //check if in range of any of the x values -> if yes recalulate the the direction the ball moves 
 //and remove the according block
 
+function drawBlocks() {
+    for(var i = 0; i<blocks.length; i++){
+        blocks[i].draw();
+    }
+}
+
+function updateBall(){
+    ball.update();
+}
+
 var gameOn = true;
 
-while(gameOn){
+function gameLoop(){
+    window.requestAnimationFrame(gameLoop);
 
+    ctx.clearRect(0, 0, frame.width, frame.height);
+
+    drawBlocks();
+    player.draw();
+    ball.draw();
+
+    updateBall();
 }
 
 
+//define the classes down here because i couldnt manage to get it to work
+//when they are in another file
+
+class Ball {
+    x = 200;
+    y = 200;
+    radius = 5;
+    fillStyle = "red";
+    ctx;
+    speed = 5;
+    currentXDirection = 1;
+    currentYDirection = 4;
+    constructor(ctx){
+        this.ctx = ctx;
+    }
+
+    getX(){
+        return this.x;
+    }
+
+    getY(){
+        return this.y;
+    }
+
+    getRadius(){
+        return this.radius;
+    }
+
+    draw(){
+        this.ctx.beginPath();
+        this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+        this.ctx.fillStyle = "fillStyle";
+        this.ctx.fill();
+        this.ctx.closePath();
+    }
+
+    update(){
+        if(ball.checkPlayerCollision()){
+            this.currentYDirection = (-1)*this.currentYDirection;
+        }else if(ball.checkBlockCollision()){
+            return;
+        }else{
+            if(this.x<8){
+                this.currentXDirection = (-1)*this.currentXDirection;
+            }else if(this.x>392){
+                this.currentXDirection = (-1)*this.currentXDirection;
+            }
+            if(this.y<8){
+                this.currentYDirection = (-1)*this.currentYDirection;
+            }else if(this.y>392){
+                this.currentYDirection = (-1)*this.currentYDirection;
+            }
+        }
+        
+        this.x += this.currentXDirection;
+        this.y += this.currentYDirection;
+
+    }
+
+    randomNumber(){
+        var rnd = Math.floor(((Math.random() * 10 + 1))/2);
+        if(rnd == 0){
+            return 1;
+        }
+        return rnd;
+    }
+
+    checkBlockCollision(){
+        for(var i = 0; i<blocks.length; i++){
+            const b = blocks[i];
+            //cover case if ball approaches from bottom or top
+            if((this.y<= (b.getBottom() + this.radius) && this.y > b.getBottom()) && (this.x >= b.getLeft() && this.x <= b.getRight())){
+                console.log("BOttom");
+                this.fromBottom(b, i);
+                return true;
+            }else if(this.y <= b.getTop() - this.radius && this.y < b.getTop()&& (this.x >= b.getLeft() && this.x <= b.getRight())){
+                console.log("TOp");
+                this.fromTop(b, i);
+                return true;
+            }else if((this.y > b.getTop() && this.y < b.getBottom()) && (this.x <= b.getLeft() + this.radius && this.x> b.getLeft())){
+                console.log("left");
+                this.fromLeft(b, i);
+                return true;
+            }else if((this.y > b.getTop() && this.y < b.getBottom()) && (this.x <= b.getRight() + this.radius && this.x> b.getRight())){
+                console.log("right");
+                this.fromRight(b, i);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    checkPlayerCollision(){
+        if(this.x <= player.getRight() && this.x >= player.getLeft()){
+            if(this.y>=(player.getTop()-this.radius) && this.y <= player.getBottom()){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    calculateLeftDown(newX){
+       var newYValue = this.speed**2 - newX**2;
+       if(this.currentYDirection>0){
+        this.currentYDirection = Math.sqrt(newYValue);
+       }else{
+        this.currentYDirection = (-1)*Math.sqrt(newYValue);
+       }
+       this.currentXDirection = (-1)*newX;
+    }
+
+    calculateRightDown(newX){
+        var newYValue = this.speed**2 - newX**2;
+       if(this.currentYDirection>0){
+        this.currentYDirection = Math.sqrt(newYValue);
+       }else{
+        this.currentYDirection = (-1)*Math.sqrt(newYValue);
+       }
+       this.currentXDirection = newX;
+    }
+
+    hitLeftEdge(){
+        var random = this.randomNumber();
+        console.log(random);
+        this.calculateLeftDown(random);
+        this.currentYDirection*(-1);
+    }
+
+    hitRightEdge(){
+        var random = this.randomNumber();
+        this.calculateRightDown(random);
+        this.currentYDirection*(-1);
+    }
+    //cover different scenarios from what angle the ball could approach the block
+
+    fromLeft(block, index){
+        this.currentXDirection = -(Math.abs(this.currentXDirection));
+        blocks.splice(index, 1);
+    }
+
+    fromRight(block, index){
+        this.currentXDirection = (Math.abs(this.currentXDirection));
+        blocks.splice(index, 1);
+    }
+
+    fromBottom(block, index) {
+        this.currentYDirection = Math.abs(this.currentYDirection);
+        blocks.splice(index, 1);
+    }
+    
+    fromTop(block, index) {
+        this.currentYDirection = -(Math.abs(this.currentYDirection));
+        blocks.splice(index, 1);
+    }
+}
 
 
+class Block {
+    width = 30;
+    height = 8;
+    fillStyle = "blue";
+    x = 0;
+    y = 0;
+    ctx;
+    constructor(x, y, ctx){
+        //I can ensure that the Numbers get passed in as numbers 
+        //with Number(x)
+        this.x = Number(x); 
+        this.y = Number(y);
+        this.ctx = ctx;
+    }
+
+    getLeft(){
+        return this.x;
+    }
+
+    getRight(){
+        return (this.x + this.width);
+    }
+
+    getTop(){
+        return this.y;
+    }
+
+    getBottom(){
+        return this.y + this.height;
+    }
+
+    draw(){
+        this.ctx.fillStyle = this.fillStyle;
+        this.ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+}
+
+class Player{
+    x = 175;
+    y = 380;
+    width = 50;
+    height = 5;
+    fillStyle = "blue";
+    ctx;
+    constructor(ctx){
+        this.ctx = ctx;
+    }
+
+    getLeft(){
+        return this.x;
+    }
+
+    getRight(){
+        return this.x + this.width;
+    }
+
+    getTop(){
+        return this.y;
+    }
+
+    getBottom(){
+        return this.y + this.height;
+    }
+
+    draw(){
+        this.ctx.fillStyle = this.fillStyle;
+        this.ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+    update(x){
+        this.x += x;
+    }
+}
+document.addEventListener("DOMContentLoaded", init);
